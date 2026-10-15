@@ -1,0 +1,9 @@
+# Streamlit local-server settings. Privacy: bind to loopback only and
+# disable telemetry so nothing leaves the machine.
+[server]
+address = "127.0.0.1"
+port = 8501
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false

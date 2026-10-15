@@ -1,0 +1,8 @@
+# All libraries run/are used locally; no cloud API clients required.
+streamlit>=1.41
+pymupdf>=1.25
+numpy>=1.26
+requests>=2.31
+
+# Testing
+pytest>=8.0

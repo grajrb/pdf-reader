@@ -1,0 +1,36 @@
+# Python environments / caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Local database (SQLite + WAL/SHM sidecars)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+*.db
+*.db-wal
+*.db-shm
+
+# PDFs are user data, not source code
+pdfs/*.pdf
+gym/
+uploads/
+
+# Model files (if any are ever stored locally)
+models/
+*.gguf
+*.bin
+
+# Secrets / local environment
+.env
+.streamlit/secrets.toml
+
+# OS / editor noise
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/

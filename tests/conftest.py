@@ -26,10 +26,17 @@ from src import database as dbmod  # noqa: E402
 from src.database import Database  # noqa: E402
 
 
+_STOPWORDS = frozenset(
+    "a an and are as at be by for from has have how i in is it its of on or "
+    "that the this to was were what when where which who why will with do does "
+    "did not no so if then than these those there here".split()
+)
+
+
 class FakeEmbedder:
     """Deterministic, offline stand-in for the Ollama embedding model."""
 
-    def __init__(self, dim: int = 48, model: str = "test-embedder", overrides=None):
+    def __init__(self, dim: int = 256, model: str = "test-embedder", overrides=None):
         self.dim = dim
         self.model = model
         # overrides: list of (substring, vector) — matching texts get that vector
@@ -42,7 +49,12 @@ class FakeEmbedder:
             if key.lower() in text.lower():
                 return np.asarray(vec, dtype=np.float32)
         v = np.zeros(self.dim, dtype=np.float32)
-        tokens = re.findall(r"[a-z0-9]+", text.lower())
+        # Stopwords removed so shared function words don't fake similarity
+        # (real embedding models handle this internally).
+        tokens = [
+            t for t in re.findall(r"[a-z0-9]+", text.lower())
+            if t not in _STOPWORDS
+        ]
         for tok in tokens:
             v[zlib.crc32(tok.encode("utf-8")) % (self.dim - 1)] += 1.0
         norm = float(np.linalg.norm(v))

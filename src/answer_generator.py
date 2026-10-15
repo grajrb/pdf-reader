@@ -26,6 +26,12 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+import config
+from src.ollama_client import OllamaClient, OllamaError
+from src.retriever import HybridRetriever, RetrievalOutcome, RetrievedChunk
+
+_CITATION_RE = re.compile(r"\[([^\],]+\.pdf),\s*page\s+(\d+)\]", re.IGNORECASE)
+
 
 SYSTEM_PROMPT = """You are a local document question-answering assistant.
 

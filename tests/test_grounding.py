@@ -37,7 +37,7 @@ class FakeChatClient:
 
 def _generator(db, embedder, responses):
     retriever = HybridRetriever(
-        db, embedder, min_cosine=0.15, min_bm25=3.0, top_k=6
+        db, embedder, min_cosine=0.25, min_bm25=2.0, top_k=6
     )
     client = FakeChatClient(responses)
     return AnswerGenerator(retriever, client=client), client

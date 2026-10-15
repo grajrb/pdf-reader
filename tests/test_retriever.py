@@ -21,8 +21,11 @@ from tests.conftest import FakeEmbedder, seed_document
 
 
 def _retriever(db, embedder, **kw):
-    kw.setdefault("min_cosine", 0.15)
-    kw.setdefault("min_bm25", 3.0)
+    # Calibrated against the FakeEmbedder's observed score distribution:
+    # absent-info queries peak at sem 0.167 / bm25 1.76, while the weakest
+    # legitimate query reaches sem 0.316 or bm25 2.385.
+    kw.setdefault("min_cosine", 0.25)
+    kw.setdefault("min_bm25", 2.0)
     return HybridRetriever(db, embedder, **kw)
 
 
@@ -103,28 +106,48 @@ def test_conflicting_documents_both_retrieved(seeded_db, fake_embedder):
     assert "conflict_b.pdf" in files
 
 
-def test_terminology_difference_via_semantics(tmp_db, fake_embedder):
+def test_terminology_difference_via_semantics(tmp_path):
     """Query wording differs from the source; semantic leg should still hit."""
-    seed_document(
-        tmp_db, "salt.pdf",
-        {1: "Sodium chloride preserves food and enhances flavor."},
-        fake_embedder,
-    )
-    # Same vector for paraphrase on both sides = simulated semantic match.
-    shared = np.zeros(fake_embedder.dim, dtype=np.float32)
-    shared[0] = 1.0
-    fake_embedder.overrides = [
+    import numpy as np
+    from tests.conftest import FakeEmbedder
+
+    embedder = FakeEmbedder()
+    shared = np.zeros(embedder.dim, dtype=np.float32)
+    shared[-1] = 1.0  # reserved subspace, orthogonal to bag-of-words dims
+    embedder.overrides = [
         ("sodium chloride", shared.copy()),
         ("table salt", shared.copy()),
     ]
-    r = _retriever(tmp_db, fake_embedder)
+    seed_document(
+        tmp_path_db := _fresh_db(tmp_path), "salt.pdf",
+        {1: "Sodium chloride preserves food and enhances flavor."},
+        embedder,
+    )
+    r = HybridRetriever(tmp_path_db, embedder, min_cosine=0.15, min_bm25=3.0)
     outcome = r.retrieve("Why is table salt helpful for preserving food?")
     assert outcome.has_results
     assert outcome.results[0].filename == "salt.pdf"
+    tmp_path_db.close()
+
+
+def _fresh_db(tmp_path):
+    from src.database import Database
+
+    db = Database(tmp_path / "term.db")
+    db.initialize()
+    return db
 
 
 def test_fts_handles_hostile_query(seeded_db, fake_embedder):
     r = _retriever(seeded_db, fake_embedder)
+    # Must not crash or execute FTS5 syntax; data must remain intact.
     outcome = r.retrieve('"; DROP TABLE chunks; -- * ( ) NEAR/')
-    assert not outcome.has_results  # safe: no crash, no results
+    assert isinstance(outcome.results, list)
     assert seeded_db._c().execute("SELECT COUNT(*) FROM chunks").fetchone()[0] > 0
+    names = {
+        row[0]
+        for row in seeded_db._c().execute(
+            "SELECT name FROM sqlite_master"
+        ).fetchall()
+    }
+    assert "chunks" in names and "documents" in names

@@ -276,7 +276,7 @@ class Database:
         """Chunks of a document that are unembedded or embedded with another model."""
         rows = self._c().execute(
             "SELECT id, page_number, chunk_index, text FROM chunks"
-            " WHERE document_id = ? AND (embedding IS NULL OR embedding_model IS ?)"
+            " WHERE document_id = ? AND (embedding IS NULL OR embedding_model IS NOT ?)"
             " ORDER BY chunk_index",
             (doc_id, model),
         ).fetchall()
@@ -403,10 +403,3 @@ class Database:
         with conn:
             conn.execute("DELETE FROM chunks")
             conn.execute("DELETE FROM documents")
-
-        with conn:
-            conn.execute(
-                "INSERT INTO meta (key, value) VALUES (?, ?) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (key, value),
-            )

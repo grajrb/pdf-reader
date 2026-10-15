@@ -73,8 +73,11 @@ def test_sentence_boundaries_preferred():
 
 
 def test_page_metadata_preserved():
-    pages = [FakePage(1, _long_text(4)), FakePage(2, _long_text(4)),
-             FakePage(3, "A short third page. " * 30)]
+    pages = [
+        FakePage(1, _long_text(4) + " Alpha page marker one."),
+        FakePage(2, _long_text(4) + " Beta page marker two."),
+        FakePage(3, "A short third page. " * 30),
+    ]
     chunks = chunker.chunk_pages(pages, chunk_size=250, overlap=50)
     by_page = {}
     for c in chunks:
@@ -90,7 +93,8 @@ def test_empty_and_whitespace_pages_yield_nothing():
 
 
 def test_long_single_paragraph_is_split():
-    text = "word " * 2000  # one enormous paragraph, no sentence ends
+    # Distinct words so the anti-duplicate guard doesn't collapse windows.
+    text = " ".join(f"word{i}" for i in range(2000))  # no sentence ends
     pages = [FakePage(1, text)]
     chunks = chunker.chunk_pages(pages, chunk_size=400, overlap=80)
     assert len(chunks) >= 4

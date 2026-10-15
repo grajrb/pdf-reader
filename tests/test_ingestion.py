@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-fitz = pytest.importorskip("fitz", reason="PyMuPDF not installed")
+fitz = pytest.importorskip("pymupdf", reason="PyMuPDF not installed")
 
 from src.database import Database  # noqa: E402
 from src.ingestion import IngestionService  # noqa: E402
@@ -117,3 +117,112 @@ def test_ingest_directory_and_report(service, pdf_dir):
     docs = service.db.list_documents()
     assert len(docs) == 2
     assert all(d["embedding_status"] == "ok" for d in docs)
+
+
+def test_incremental_skip_unchanged_and_detect_changes(service, pdf_dir):
+    p = make_pdf(pdf_dir / "doc.pdf", ["Original text about herons."])
+    first = service.ingest_file(p)
+    assert first.status == "indexed"
+
+    second = service.ingest_file(p)
+    assert second.status == "unchanged"
+
+    # Change the file's bytes -> re-ingest must update, not duplicate.
+    make_pdf(pdf_dir / "doc.pdf", ["Totally new text about pelicans."])
+    third = service.ingest_file(p)
+    assert third.status == "updated"
+    assert len(service.db.fts_search("pelicans", 10)) == 1
+    assert len(service.db.fts_search("herons", 10)) == 0
+    assert len(service.db.list_documents()) == 1
+
+
+def test_duplicate_content_not_indexed_twice(service, pdf_dir):
+    import shutil
+
+    make_pdf(pdf_dir / "original.pdf", ["Identical body text for hashing."])
+    # A true byte-for-byte copy -> same SHA-256 -> duplicate detection.
+    shutil.copyfile(pdf_dir / "original.pdf", pdf_dir / "copy.pdf")
+    r1 = service.ingest_file(pdf_dir / "original.pdf")
+    r2 = service.ingest_file(pdf_dir / "copy.pdf")
+    assert r1.status == "indexed"
+    assert r2.status == "duplicate"
+    indexed = [d for d in service.db.list_documents() if d["status"] == "indexed"]
+    assert len(indexed) == 1
+
+
+def test_remove_document_keeps_fts_consistent(service, pdf_dir):
+    make_pdf(pdf_dir / "gone.pdf", ["Unique walrus information here."])
+    service.ingest_file(pdf_dir / "gone.pdf")
+    assert len(service.db.fts_search("walrus", 10)) == 1
+    assert service.remove_document("gone.pdf") is True
+    assert service.remove_document("gone.pdf") is False
+    assert service.db.list_documents() == []
+    assert service.db.fts_search("walrus", 10) == []
+    assert service.db._c().execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == 0
+
+
+def test_rebuild_recreates_index(service, pdf_dir):
+    make_pdf(pdf_dir / "x.pdf", ["X-ray fish live in rivers."])
+    make_pdf(pdf_dir / "y.pdf", ["Yaks live in mountains."])
+    service.ingest_directory()
+    assert len(service.db.list_documents()) == 2
+    report = service.rebuild()
+    assert report.indexed == 2
+    assert len(service.db.list_documents()) == 2
+    assert len(service.db.fts_search("yaks", 10)) == 1
+
+
+def test_failed_embedding_still_indexes_text(tmp_path, pdf_dir):
+    from src.embeddings import EmbeddingError
+
+    class BrokenEmbedder(FakeEmbedder):
+        def embed_documents(self, texts, progress=None):
+            raise EmbeddingError("Ollama is down")
+
+    db = Database(tmp_path / "broken.db")
+    db.initialize()
+    svc = IngestionService(
+        db, embedder=BrokenEmbedder(), pdf_dir=pdf_dir, chunk_size=400, chunk_overlap=80
+    )
+    p = make_pdf(pdf_dir / "kw.pdf", ["Keyword searchable content about zebras."])
+    entry = svc.ingest_file(p)
+    assert entry.status == "indexed"
+    assert entry.embedded is False
+    assert "keyword search works" in entry.message.lower()
+    doc = db.get_document("kw.pdf")
+    assert doc["embedding_status"] == "failed"
+    # keyword path still functional
+    assert len(db.fts_search("zebras", 10)) == 1
+    # repair with a healthy embedder succeeds
+    svc2 = IngestionService(
+        db, embedder=FakeEmbedder(), pdf_dir=pdf_dir, chunk_size=400, chunk_overlap=80
+    )
+    assert svc2.repair_embeddings(doc["id"]) is True
+    assert db.get_document("kw.pdf")["embedding_status"] == "ok"
+    db.close()
+
+
+def test_scanned_pdf_warning_surfaces_in_report(service, pdf_dir):
+    # A blank page with no text -> no_text status with OCR hint in message.
+    p = make_pdf(pdf_dir / "scan.pdf", [""])
+    entry = service.ingest_file(p)
+    assert entry.status == "no_text"
+    assert "OCR" in entry.message
+    doc = service.db.get_document("scan.pdf")
+    assert doc["status"] == "no_text"
+    assert doc["chunk_count"] == 0
+
+
+def test_page_numbers_survive_ingestion(service, pdf_dir):
+    import json
+
+    p = make_pdf(pdf_dir / "multi.pdf", ["First page content apples.", "", "Third page content oranges."])
+    service.ingest_file(p)
+    doc = service.db.get_document("multi.pdf")
+    assert doc["page_count"] == 3
+    assert json.loads(doc["empty_pages"]) == [2]  # middle page empty
+    rows = service.db._c().execute(
+        "SELECT page_number FROM chunks WHERE document_id = ?", (doc["id"],)
+    ).fetchall()
+    pages = {r[0] for r in rows}
+    assert pages == {1, 3}

@@ -15,9 +15,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 try:
-    import fitz  # PyMuPDF
+    import pymupdf  # PyMuPDF >= 1.24
 except ImportError:  # pragma: no cover - env check, not a unit path
-    fitz = None  # type: ignore[assignment]
+    try:
+        import fitz as pymupdf  # older PyMuPDF
+    except ImportError:
+        pymupdf = None  # type: ignore[assignment]
 
 # A page with fewer extractable characters than this (but some images) is
 # treated as a likely scanned page.
@@ -76,7 +79,7 @@ def extract_pdf(path: str | Path) -> ExtractionResult:
     """Extract text page-by-page from a PDF, with robust failure handling."""
     path = Path(path)
     filename = path.name
-    if fitz is None:
+    if pymupdf is None:
         return ExtractionResult(
             filename=filename,
             path=str(path),
@@ -99,7 +102,7 @@ def extract_pdf(path: str | Path) -> ExtractionResult:
         )
 
     try:
-        doc = fitz.open(str(path))
+        doc = pymupdf.open(str(path))
     except Exception as exc:  # malformed PDFs raise several exception types
         return ExtractionResult(
             filename=filename,
@@ -157,7 +160,7 @@ def extract_pdf(path: str | Path) -> ExtractionResult:
 
     if char_count == 0:
         message = "No extractable text found in this PDF."
-        if scanned_pages or any(p.has_images for p in pages):
+        if pages:
             message += " " + OCR_HINT
         return ExtractionResult(
             filename=filename,

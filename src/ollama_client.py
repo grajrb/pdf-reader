@@ -167,3 +167,61 @@ class OllamaClient:
             if ":" not in name and model.split(":")[0] == name:
                 return True
         return False
+
+    def embed(
+        self,
+        model: str,
+        inputs: Sequence[str],
+        timeout: float | None = None,
+    ) -> list[list[float]]:
+        """Embed a batch of texts. Returns one vector per input."""
+        data = self._post(
+            "/api/embed",
+            {"model": model, "input": list(inputs)},
+            timeout if timeout is not None else config.EMBEDDING_TIMEOUT,
+            model,
+        )
+        vectors = data.get("embeddings")
+        if vectors is None and "embedding" in data:  # single-input fallback
+            vectors = [data["embedding"]]
+        if not isinstance(vectors, list) or len(vectors) != len(inputs):
+            count = len(vectors) if isinstance(vectors, list) else 0
+            raise OllamaResponseError(
+                f"Ollama returned {count} embeddings for {len(inputs)} "
+                f"inputs using '{model}'."
+            )
+        return vectors
+
+    def chat(
+        self,
+        model: str,
+        messages: Sequence[dict[str, str]],
+        temperature: float | None = None,
+        timeout: float | None = None,
+    ) -> str:
+        """Run one non-streaming chat completion; returns the assistant text."""
+        data = self._post(
+            "/api/chat",
+            {
+                "model": model,
+                "messages": list(messages),
+                "stream": False,
+                "options": {
+                    "temperature": (
+                        config.GENERATION_TEMPERATURE
+                        if temperature is None
+                        else temperature
+                    )
+                },
+            },
+            timeout if timeout is not None else config.CHAT_TIMEOUT,
+            model,
+        )
+        message = data.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, str) or not content.strip():
+            raise OllamaResponseError(
+                f"Ollama returned an empty assistant message for '{model}'."
+            )
+        return content
+

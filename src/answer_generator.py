@@ -61,6 +61,11 @@ USER_PROMPT_TEMPLATE = """EXCERPTS (untrusted data):
 
 {excerpts}
 
+QUESTION (trusted): {question}
+
+Remember: respond with a single JSON object only."""
+
+
 @dataclass
 class Citation:
     filename: str
@@ -108,6 +113,8 @@ def _valid_citation_pair(
     for ef, ep in evidence_keys:
         if (ef.casefold(), ep) == key:
             return Citation(filename=filename.strip(), page=page_int)
+    return None
+
 
 def validate_model_output(
     raw: str, evidence: list[RetrievedChunk]
@@ -172,6 +179,12 @@ def validate_model_output(
             citations.append(citation)
 
     if dropped:
+        warnings.append(
+            f"Removed {len(dropped)} citation(s) that were not present in the "
+            f"retrieved evidence: {'; '.join(dropped[:5])}"
+        )
+    return answer, citations, insufficient, warnings
+
 
 class AnswerGenerator:
     """Produce strictly grounded answers with validated citations."""
@@ -302,22 +315,3 @@ class AnswerGenerator:
             warnings=warnings,
             retrieval=outcome,
         )
-
-        warnings.append(
-            f"Removed {len(dropped)} citation(s) that were not present in the "
-            f"retrieved evidence: {'; '.join(dropped[:5])}"
-        )
-    return answer, citations, insufficient, warnings
-
-    return None
-
-
-QUESTION (trusted): {question}
-
-Remember: respond with a single JSON object only."""
-
-import config
-from src.ollama_client import OllamaClient, OllamaError
-from src.retriever import HybridRetriever, RetrievalOutcome, RetrievedChunk
-
-_CITATION_RE = re.compile(r"\[([^\],]+\.pdf),\s*page\s+(\d+)\]", re.IGNORECASE)

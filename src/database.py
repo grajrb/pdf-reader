@@ -158,6 +158,12 @@ class Database:
 
     def set_meta(self, key: str, value: str) -> None:
         conn = self._c()
+        with conn:
+            conn.execute(
+                "INSERT INTO meta (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
 
     # ---------------------------------------------------------- documents
     def get_document(self, filename: str) -> dict | None:
@@ -259,6 +265,9 @@ class Database:
                         [
                             (pack_embedding(v), embedding_model, cid)
                             for cid, v in zip(ids, vectors)
+                        ],
+                    )
+        return doc_id
 
     # ---------------------------------------------------------- embeddings
     def chunks_needing_embeddings(
@@ -371,10 +380,6 @@ class Database:
         )
         rows = self._c().execute(sql, list(chunk_ids)).fetchall()
         return {r["id"]: dict(r) for r in rows}
-
-                        ],
-                    )
-        return doc_id
 
     def set_embedding_status(self, doc_id: int, status: str) -> None:
         conn = self._c()

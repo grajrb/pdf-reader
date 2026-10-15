@@ -198,6 +198,8 @@ class IngestionService:
                 chars=extraction.char_count,
                 chunks=0,
                 embedded=False,
+                message=extraction.message,
+            )
 
         chunks = chunker.chunk_pages(
             extraction.pages, self.chunk_size, self.chunk_overlap
@@ -310,6 +312,3 @@ class IngestionService:
         """Drop the whole index and re-ingest a directory from scratch."""
         self.db.clear_all()
         return self.ingest_directory(directory, force=True, progress=progress)
-
-                message=extraction.message,
-            )

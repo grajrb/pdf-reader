@@ -271,9 +271,13 @@ overridable the same way — see `config.py` for the full list.
 **What never leaves your machine:** PDFs, questions, answers, embeddings, the
 SQLite database, chat history. The application code makes exactly one kind of
 network connection — HTTP to `OLLAMA_HOST` (default
-`http://127.0.0.1:11434`). There are no cloud APIs, no analytics, no
-telemetry (also disabled in `.streamlit/config.toml`), no crash reporters,
-and no API keys. The Streamlit server binds to loopback, not your LAN.
+`http://127.0.0.1:11434`). `OLLAMA_HOST` is restricted to `localhost`,
+`127.0.0.1`, or `::1`; remote Ollama servers are rejected before a request is
+sent. PDFs can still be indexed for keyword search when Ollama is unavailable;
+semantic search becomes available after Ollama and the embedding model are
+ready. There are no cloud APIs, no analytics, no telemetry (also disabled in
+`.streamlit/config.toml`), no crash reporters, and no API keys. The Streamlit
+server binds to loopback, not your LAN.
 
 **What needs the internet once:** `pip install -r requirements.txt` and
 `ollama pull` of the two models. After those succeed, you can disconnect and
@@ -371,7 +375,8 @@ chars), overlap (`PDFQA_CHUNK_OVERLAP`, default 170), embedding batch size
 (`PDFQA_EMBED_BATCH_SIZE`, 32), semantic/keyword candidate counts (30/30),
 top-k (`PDFQA_TOP_K`, 6), RRF k (60), `PDFQA_MIN_COSINE` (0.30),
 `PDFQA_MIN_BM25` (6.0), temperature (`PDFQA_TEMPERATURE`, 0.0), timeouts,
-database path (`PDFQA_DB_PATH`), PDF dir (`PDFQA_PDF_DIR`).
+database path (`PDFQA_DB_PATH`), PDF dir (`PDFQA_PDF_DIR`). `OLLAMA_HOST`
+may point only to a loopback address (`localhost`, `127.0.0.1`, or `::1`).
 
 
 ## 20. Project layout

@@ -7,7 +7,9 @@ unavailable.
 """
 from __future__ import annotations
 
+import ipaddress
 from typing import Any, Sequence
+from urllib.parse import urlsplit
 
 import requests
 
@@ -30,6 +32,10 @@ class OllamaResponseError(OllamaError):
     """Ollama responded with an error or an unexpected payload."""
 
 
+class OllamaConfigurationError(OllamaError):
+    """Ollama is configured with a non-local or malformed server URL."""
+
+
 class OllamaClient:
     """Small synchronous client for Ollama's /api endpoints."""
 
@@ -47,6 +53,39 @@ class OllamaClient:
 
     # ------------------------------------------------------------- helpers
     def _url(self, path: str) -> str:
+        try:
+            parsed = urlsplit(self.host)
+            hostname = parsed.hostname
+            is_loopback_ip = (
+                ipaddress.ip_address(hostname).is_loopback
+                if hostname is not None
+                else False
+            )
+        except ValueError:
+            raise OllamaConfigurationError(
+                "Ollama must use a valid localhost URL; remote Ollama hosts "
+                "are disabled to keep all document and question traffic on "
+                "this machine."
+            ) from None
+
+        is_localhost = (
+            hostname is not None
+            and hostname.rstrip(".").lower() == "localhost"
+        )
+        if (
+            parsed.scheme not in ("http", "https")
+            or not (is_localhost or is_loopback_ip)
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in ("", "/")
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise OllamaConfigurationError(
+                "Ollama must use a localhost URL (127.0.0.1, ::1, or "
+                "localhost). Remote Ollama hosts are disabled to keep all "
+                "document and question traffic on this machine."
+            )
         return f"{self.host}{path}"
 
     @staticmethod
@@ -224,4 +263,3 @@ class OllamaClient:
                 f"Ollama returned an empty assistant message for '{model}'."
             )
         return content
-

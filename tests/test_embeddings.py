@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
 from src.embeddings import Embedder, EmbeddingError  # noqa: E402
 from src.ollama_client import (  # noqa: E402
     OllamaClient,
+    OllamaConfigurationError,
     OllamaModelMissing,
     OllamaUnavailable,
 )
@@ -45,6 +46,20 @@ def test_unavailable_server_raises_friendly_error(monkeypatch):
     with pytest.raises(OllamaUnavailable) as exc:
         client.list_models()
     assert "ollama serve" in str(exc.value) or "Ollama" in str(exc.value)
+
+
+def test_non_local_ollama_host_is_rejected_before_network(monkeypatch):
+    calls = []
+
+    def unexpected_request(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("A non-local Ollama host must never be contacted.")
+
+    monkeypatch.setattr(requests, "get", unexpected_request)
+    client = OllamaClient(host="https://example.com:11434")
+    with pytest.raises(OllamaConfigurationError, match="localhost"):
+        client.list_models()
+    assert calls == []
 
 
 def test_missing_model_instructs_pull(monkeypatch):

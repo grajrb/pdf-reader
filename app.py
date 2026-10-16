@@ -177,7 +177,7 @@ with st.sidebar:
                 )
         bar.empty()
 
-    if st.button("Index files from pdfs/ folder", disabled=not embed_ok):
+    if st.button("Index files from pdfs/ folder"):
         with st.spinner("Indexing pdfs/ directory…"):
             report = service.ingest_directory()
         st.success(f"Indexed/updated {report.indexed} document(s).")

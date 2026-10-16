@@ -115,7 +115,10 @@ class OllamaClient:
     ) -> dict[str, Any]:
         try:
             response = requests.post(
-                self._url(path), json=payload, timeout=timeout
+                self._url(path),
+                json=payload,
+                timeout=timeout,
+                proxies={"http": None, "https": None},
             )
         except requests.Timeout as exc:
             raise OllamaError(
@@ -169,7 +172,9 @@ class OllamaClient:
         """List installed model names, e.g. ['qwen3:8b', 'embeddinggemma:latest']."""
         try:
             response = requests.get(
-                self._url("/api/tags"), timeout=self.connect_timeout
+                self._url("/api/tags"),
+                timeout=self.connect_timeout,
+                proxies={"http": None, "https": None},
             )
         except requests.Timeout as exc:
             raise OllamaUnavailable(

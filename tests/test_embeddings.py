@@ -62,6 +62,18 @@ def test_non_local_ollama_host_is_rejected_before_network(monkeypatch):
     assert calls == []
 
 
+def test_local_ollama_requests_bypass_environment_proxies(monkeypatch):
+    seen = {}
+
+    def local_request(url, **kwargs):
+        seen.update(kwargs)
+        return FakeResponse(payload={"models": []})
+
+    monkeypatch.setattr(requests, "get", local_request)
+    assert OllamaClient().list_models() == []
+    assert seen["proxies"] == {"http": None, "https": None}
+
+
 def test_missing_model_instructs_pull(monkeypatch):
     monkeypatch.setattr(
         requests, "get",
@@ -91,7 +103,7 @@ def test_embed_http_404_maps_to_model_missing(monkeypatch):
 def test_embedding_batches_and_normalization(monkeypatch):
     calls = []
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, timeout=None, **kwargs):
         calls.append(json)
         n = len(json["input"])
         # 4-dim vectors with varying norms to test normalization
@@ -117,7 +129,7 @@ def test_embedding_batches_and_normalization(monkeypatch):
 def test_query_and_document_prefixes_used(monkeypatch):
     seen = []
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, timeout=None, **kwargs):
         seen.extend(json["input"])
         return FakeResponse(payload={"embeddings": [[1.0, 0.0]] * len(json["input"])})
 
@@ -136,7 +148,7 @@ def test_dimension_mismatch_raises(monkeypatch):
         FakeResponse(payload={"embeddings": [[1.0, 0.0, 0.0]]}),
     ]
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, timeout=None, **kwargs):
         return responses.pop(0)
 
     monkeypatch.setattr(requests, "post", fake_post)

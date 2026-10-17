@@ -1,8 +1,8 @@
 """Command-line ingestion (no UI needed).
 
 Usage:
-    python ingest.py                 # index pdfs/ incrementally
-    python ingest.py --rebuild       # wipe the index and re-ingest pdfs/
+    python ingest.py                 # index the configured PDF dir (gym/) incrementally
+    python ingest.py --rebuild       # wipe the index and re-ingest
     python ingest.py --dir some/dir  # index a different directory
 """
 from __future__ import annotations
@@ -17,7 +17,10 @@ from src.ingestion import IngestionService
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Ingest PDFs into the local index.")
-    parser.add_argument("--dir", default=None, help="PDF directory (default: pdfs/)")
+    parser.add_argument(
+        "--dir", default=None,
+        help=f"PDF directory (default: {config.PDF_DIR})",
+    )
     parser.add_argument(
         "--rebuild", action="store_true", help="Drop the index and re-ingest."
     )

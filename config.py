@@ -47,7 +47,9 @@ CHAT_TIMEOUT = _env_float("PDFQA_CHAT_TIMEOUT", 600.0)
 GENERATION_TEMPERATURE = _env_float("PDFQA_TEMPERATURE", 0.0)
 
 # ------------------------------------------------------------------ paths
-PDF_DIR = Path(_env("PDFQA_PDF_DIR", str(BASE_DIR / "pdfs")))
+# Main data source: the gym/ folder holds the fitness program PDFs.
+# Override with e.g. $env:PDFQA_PDF_DIR="D:\other\pdfs" if needed.
+PDF_DIR = Path(_env("PDFQA_PDF_DIR", str(BASE_DIR / "gym")))
 DATA_DIR = Path(_env("PDFQA_DATA_DIR", str(BASE_DIR / "data")))
 DB_PATH = Path(_env("PDFQA_DB_PATH", str(DATA_DIR / "knowledge.db")))
 

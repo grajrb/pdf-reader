@@ -134,16 +134,17 @@ pip install -r requirements.txt
 
 Two supported ways:
 
-1. **Drop files into `pdfs/`** — any PDF placed there is picked up by
-   "Index files from pdfs/ folder" in the UI or by `python ingest.py`.
-2. **Upload through the UI** — the sidebar uploader saves files into `pdfs/`
+1. **Drop files into `gym/`** (the default PDF folder, set in `config.py`) —
+   any PDF placed there is picked up by "Index files from gym/ folder" in the
+   UI or by `python ingest.py`.
+2. **Upload through the UI** — the sidebar uploader saves files into `gym/`
    on this machine only (they are never sent anywhere).
 
 Originals are opened read-only; the app never modifies your PDFs.
 
 ## 8. Run ingestion
 
-**Option A — from the UI:** click *Index files from pdfs/ folder* (or upload
+**Option A — from the UI:** click *Index files from gym/ folder* (or upload
 files and click *Index uploaded files*). The sidebar shows a per-document
 report: pages, chunks, embedding status, and warnings (e.g. scanned PDFs).
 
@@ -154,6 +155,9 @@ python ingest.py                 # incremental: skips unchanged files
 python ingest.py --rebuild       # wipe the index and re-ingest everything
 python ingest.py --dir D:\other\pdfs   # index a different folder
 ```
+
+The default folder is `gym/` (see `PDF_DIR` in `config.py`); override it with
+the `PDFQA_PDF_DIR` environment variable or the `--dir` flag.
 
 Incremental behavior:
 
@@ -388,7 +392,7 @@ local-pdf-qa/
 ├── ingest.py               # CLI ingestion / rebuild
 ├── requirements.txt
 ├── .streamlit/config.toml  # bind 127.0.0.1, telemetry off
-├── pdfs/                   # your PDFs live here (gitignored)
+├── gym/                    # main PDF data source (gitignored)
 ├── data/                   # knowledge.db lives here (gitignored)
 ├── src/
 │   ├── ollama_client.py    # local Ollama HTTP client + friendly errors

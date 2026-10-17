@@ -177,8 +177,8 @@ with st.sidebar:
                 )
         bar.empty()
 
-    if st.button("Index files from pdfs/ folder"):
-        with st.spinner("Indexing pdfs/ directory…"):
+    if st.button(f"Index files from {config.PDF_DIR.name}/ folder"):
+        with st.spinner(f"Indexing {config.PDF_DIR.name}/ directory…"):
             report = service.ingest_directory()
         st.success(f"Indexed/updated {report.indexed} document(s).")
         for entry in report.entries:
@@ -194,7 +194,7 @@ with st.sidebar:
     documents = db.list_documents()
     if not documents:
         st.caption("No documents indexed yet. Upload PDFs or add files to "
-                   "the pdfs/ folder.")
+                   f"the {config.PDF_DIR.name}/ folder.")
     for doc in documents:
         emb = "✓" if doc["embedding_status"] == "ok" else "⚠"
         with st.expander(f"{emb} {doc['filename']} — {doc['page_count']}p, "
@@ -215,7 +215,8 @@ with st.sidebar:
                 st.rerun()
 
     with st.popover("Danger zone"):
-        st.caption("Rebuild deletes the whole index and re-ingests pdfs/.")
+        st.caption(f"Rebuild deletes the whole index and re-ingests "
+                   f"{config.PDF_DIR.name}/.")
         if st.checkbox("I understand"):
             if st.button("Rebuild entire index", type="primary"):
                 with st.spinner("Rebuilding…"):
